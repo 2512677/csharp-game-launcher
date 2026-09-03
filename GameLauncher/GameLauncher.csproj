@@ -8,11 +8,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="background.png" />
     <None Remove="images\Icon.ico" />
     <None Remove="images\LauncherBackground.png" />
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="background.png" />
     <Resource Include="images\Icon.ico" />
     <Resource Include="images\LauncherBackground.png" />
   </ItemGroup>

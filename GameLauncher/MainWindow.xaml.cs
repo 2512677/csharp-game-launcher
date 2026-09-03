@@ -36,16 +36,16 @@ namespace GameLauncher
                 switch (_status)
                 {
                     case LauncherStatus.ready:
-                        PlayButton.Content = "Play";
+                        PlayButton.Content = "Играть";
                         break;
                     case LauncherStatus.failed:
-                        PlayButton.Content = "Update Failed - Retry";
+                        PlayButton.Content = "Обновление не удалось — повторите попытку.";
                         break;
                     case LauncherStatus.downloadingGame:
-                        PlayButton.Content = "Downloading Game";
+                        PlayButton.Content = "Загрузка игры";
                         break;
                     case LauncherStatus.downloadingUpdate:
-                        PlayButton.Content = "Downloading Update";
+                        PlayButton.Content = "Загрузка обновления";
                         break;
                     default:
                         break;
@@ -73,7 +73,7 @@ namespace GameLauncher
                 try
                 {
                     WebClient webClient = new WebClient();
-                    Version onlineVersion = new Version(webClient.DownloadString("https://drive.google.com/uc?export=download&id=1R3GT_VINzmNoXKtvnvuJw6C86-k3Jr5s"));
+                    Version onlineVersion = new Version(webClient.DownloadString("https://drive.google.com/file/d/1RywEdOMSj8pk5ioOC1S7-pGdG7D6NapQ/view"));
 
                     if (onlineVersion.IsDifferentThan(localVersion))
                     {
