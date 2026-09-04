@@ -1,22 +1,41 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
     <ApplicationIcon>images\Icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <None Remove="background.png" />
+    <None Remove="Button.png" />
+    <None Remove="Button_White.png" />
+    <None Remove="images\background.png" />
     <None Remove="images\Icon.ico" />
-    <None Remove="images\LauncherBackground.png" />
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="background.png" />
+    <Resource Include="Button.png" />
+    <Resource Include="Button_White.png" />
     <Resource Include="images\Icon.ico" />
-    <Resource Include="images\LauncherBackground.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="background.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="images\background.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="launcher-settings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

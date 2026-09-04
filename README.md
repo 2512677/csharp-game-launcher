@@ -1,9 +1,35 @@
-# C# Game Launcher Tutorial
-This is the source code for the launcher that we build in my [game launcher tutorial](https://youtu.be/JIjZQo03YdA) on YouTube.
+# Game Launcher
 
-**Note:** in order for this to work you will need to replace the download links in the MainWindow.xaml.cs file. If you're hosting files on Google Drive like we did in the tutorial, you can use [this](https://sites.google.com/site/gdocs2direct/) to convert sharing links into direct-download links.
+WPF-лаунчер для установки, обновления и запуска Windows-игры. Проект работает на .NET 8.
 
-[YouTube Channel](https://tomweiland.net/youtube)\
-[My Blog](https://tomweiland.net/)\
-[Instagram](https://tomweiland.net/instagram)\
-[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y8Y21O02J)
+## Настройка
+
+Параметры находятся в `GameLauncher/launcher-settings.json`:
+
+- `gameName` — название в окне лаунчера;
+- `gameDirectory` — папка игры рядом с лаунчером;
+- `gameExecutable` — путь к `.exe` внутри папки игры;
+- `versionFile` — локальный файл, в котором хранится установленная версия;
+- `backgroundImage` — фон окна относительно папки лаунчера;
+- `versionUrl` — прямая ссылка на текстовый файл с версией вида `1.2.3`;
+- `packageUrl` — прямая ссылка на ZIP-архив игры.
+
+Чтобы использовать лаунчер для другой игры, достаточно изменить этот JSON-файл и заменить фон — править или пересобирать C#-код не требуется. Архив может содержать папку из `gameDirectory` либо сразу файлы игры. Перед публикацией обязательно замените демонстрационные ссылки на собственные прямые ссылки.
+
+## Сборка
+
+```powershell
+dotnet build GameLauncher.sln --configuration Release
+```
+
+Для публикации автономного Windows-приложения:
+
+```powershell
+dotnet publish GameLauncher/GameLauncher.csproj --configuration Release --runtime win-x64 --self-contained true
+```
+
+## Надёжность обновления
+
+Лаунчер скачивает архив во временный файл, проверяет его при распаковке и только затем заменяет папку игры. При ошибке старая установка восстанавливается. Если сервер недоступен, уже установленную игру можно запустить офлайн. Подробности ошибок записываются в `launcher.log`.
+
+Исходный проект основан на [C# Game Launcher Tutorial](https://youtu.be/JIjZQo03YdA) Tom Weiland.

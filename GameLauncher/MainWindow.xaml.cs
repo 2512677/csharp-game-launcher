@@ -1,224 +1,254 @@
-﻿using System;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Net;
+using System.Net.Http;
 using System.Windows;
+using System.Windows.Media.Imaging;
 
-namespace GameLauncher
+namespace GameLauncher;
+
+internal enum LauncherStatus
 {
-    enum LauncherStatus
+    Checking,
+    Downloading,
+    Installing,
+    Ready,
+    Failed
+}
+
+public partial class MainWindow : Window
+{
+    private static readonly HttpClient HttpClient = CreateHttpClient();
+
+    private readonly string _rootPath = AppContext.BaseDirectory;
+    private CancellationTokenSource? _operationCancellation;
+    private GameUpdater? _updater;
+    private LauncherStatus _status = LauncherStatus.Checking;
+
+    public MainWindow()
     {
-        ready,
-        failed,
-        downloadingGame,
-        downloadingUpdate
+        InitializeComponent();
     }
 
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
-    public partial class MainWindow : Window
+    private async void Window_ContentRendered(object sender, EventArgs e)
     {
-        private string rootPath;
-        private string versionFile;
-        private string gameZip;
-        private string gameExe;
+        await CheckForUpdatesAsync();
+    }
 
-        private LauncherStatus _status;
-        internal LauncherStatus Status
+    private async Task CheckForUpdatesAsync()
+    {
+        if (_operationCancellation is not null)
         {
-            get => _status;
-            set
-            {
-                _status = value;
-                switch (_status)
-                {
-                    case LauncherStatus.ready:
-                        PlayButton.Content = "Играть";
-                        break;
-                    case LauncherStatus.failed:
-                        PlayButton.Content = "Обновление не удалось — повторите попытку.";
-                        break;
-                    case LauncherStatus.downloadingGame:
-                        PlayButton.Content = "Загрузка игры";
-                        break;
-                    case LauncherStatus.downloadingUpdate:
-                        PlayButton.Content = "Загрузка обновления";
-                        break;
-                    default:
-                        break;
-                }
-            }
+            return;
         }
 
-        public MainWindow()
-        {
-            InitializeComponent();
+        _operationCancellation = new CancellationTokenSource();
+        PlayButton.IsEnabled = false;
 
-            rootPath = Directory.GetCurrentDirectory();
-            versionFile = Path.Combine(rootPath, "Version.txt");
-            gameZip = Path.Combine(rootPath, "Build.zip");
-            gameExe = Path.Combine(rootPath, "Build", "Pirate Game.exe");
+        try
+        {
+            LauncherSettings settings = LauncherSettings.Load(
+                Path.Combine(_rootPath, "launcher-settings.json"));
+
+            Title = $"{settings.GameName} — Лаунчер";
+            GameTitleText.Text = settings.GameName;
+            ApplyBranding(settings);
+
+            _updater = new GameUpdater(HttpClient, settings, _rootPath);
+            var progress = new Progress<LauncherProgress>(ShowProgress);
+            UpdateResult result = await _updater.CheckAndUpdateAsync(
+                progress,
+                _operationCancellation.Token);
+
+            SetReady(result.Version, result.Message);
         }
-
-        private void CheckForUpdates()
+        catch (OperationCanceledException) when (_operationCancellation.IsCancellationRequested)
         {
-            if (File.Exists(versionFile))
+            StatusText.Text = "Операция отменена.";
+        }
+        catch (Exception exception)
+        {
+            LogError(exception);
+
+            if (_updater?.IsGameInstalled == true)
             {
-                Version localVersion = new Version(File.ReadAllText(versionFile));
-                VersionText.Text = localVersion.ToString();
-
-                try
-                {
-                    WebClient webClient = new WebClient();
-                    Version onlineVersion = new Version(webClient.DownloadString("https://drive.google.com/file/d/1RywEdOMSj8pk5ioOC1S7-pGdG7D6NapQ/view"));
-
-                    if (onlineVersion.IsDifferentThan(localVersion))
-                    {
-                        InstallGameFiles(true, onlineVersion);
-                    }
-                    else
-                    {
-                        Status = LauncherStatus.ready;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Status = LauncherStatus.failed;
-                    MessageBox.Show($"Error checking for game updates: {ex}");
-                }
+                SetReady(
+                    _updater.LocalVersion,
+                    "Сервер обновлений недоступен. Можно играть в установленную версию.");
             }
             else
             {
-                InstallGameFiles(false, Version.zero);
+                SetFailed(exception);
             }
         }
-
-        private void InstallGameFiles(bool _isUpdate, Version _onlineVersion)
+        finally
         {
-            try
-            {
-                WebClient webClient = new WebClient();
-                if (_isUpdate)
-                {
-                    Status = LauncherStatus.downloadingUpdate;
-                }
-                else
-                {
-                    Status = LauncherStatus.downloadingGame;
-                    _onlineVersion = new Version(webClient.DownloadString("https://drive.google.com/uc?export=download&id=1R3GT_VINzmNoXKtvnvuJw6C86-k3Jr5s"));
-                }
-
-                webClient.DownloadFileCompleted += new AsyncCompletedEventHandler(DownloadGameCompletedCallback);
-                webClient.DownloadFileAsync(new Uri("https://drive.google.com/uc?export=download&id=1SNA_3P5wVp4tZi5NKhiGAAD6q4ilbaaf"), gameZip, _onlineVersion);
-            }
-            catch (Exception ex)
-            {
-                Status = LauncherStatus.failed;
-                MessageBox.Show($"Error installing game files: {ex}");
-            }
-        }
-
-        private void DownloadGameCompletedCallback(object sender, AsyncCompletedEventArgs e)
-        {
-            try
-            {
-                string onlineVersion = ((Version)e.UserState).ToString();
-                ZipFile.ExtractToDirectory(gameZip, rootPath, true);
-                File.Delete(gameZip);
-
-                File.WriteAllText(versionFile, onlineVersion);
-
-                VersionText.Text = onlineVersion;
-                Status = LauncherStatus.ready;
-            }
-            catch (Exception ex)
-            {
-                Status = LauncherStatus.failed;
-                MessageBox.Show($"Error finishing download: {ex}");
-            }
-        }
-
-        private void Window_ContentRendered(object sender, EventArgs e)
-        {
-            CheckForUpdates();
-        }
-
-        private void PlayButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (File.Exists(gameExe) && Status == LauncherStatus.ready)
-            {
-                ProcessStartInfo startInfo = new ProcessStartInfo(gameExe);
-                startInfo.WorkingDirectory = Path.Combine(rootPath, "Build");
-                Process.Start(startInfo);
-
-                Close();
-            }
-            else if (Status == LauncherStatus.failed)
-            {
-                CheckForUpdates();
-            }
+            _operationCancellation.Dispose();
+            _operationCancellation = null;
+            PlayButton.IsEnabled = _status is LauncherStatus.Ready or LauncherStatus.Failed;
         }
     }
 
-    struct Version
+    private void ShowProgress(LauncherProgress progress)
     {
-        internal static Version zero = new Version(0, 0, 0);
-
-        private short major;
-        private short minor;
-        private short subMinor;
-
-        internal Version(short _major, short _minor, short _subMinor)
+        _status = progress.Phase switch
         {
-            major = _major;
-            minor = _minor;
-            subMinor = _subMinor;
+            LauncherPhase.Checking => LauncherStatus.Checking,
+            LauncherPhase.Downloading => LauncherStatus.Downloading,
+            LauncherPhase.Installing => LauncherStatus.Installing,
+            _ => _status
+        };
+
+        StatusText.Text = progress.Message;
+        PlayButton.Content = progress.Phase switch
+        {
+            LauncherPhase.Checking => "Проверка…",
+            LauncherPhase.Downloading => "Загрузка…",
+            LauncherPhase.Installing => "Установка…",
+            _ => PlayButton.Content
+        };
+
+        ProgressBar.Visibility = Visibility.Visible;
+        ProgressBar.IsIndeterminate = progress.Percentage is null;
+        if (progress.Percentage is int percentage)
+        {
+            ProgressBar.Value = percentage;
         }
-        internal Version(string _version)
+    }
+
+    private void SetReady(Version? version, string message)
+    {
+        _status = LauncherStatus.Ready;
+        VersionText.Text = version is null ? "Версия: неизвестна" : $"Версия: {version}";
+        StatusText.Text = message;
+        ProgressBar.Visibility = Visibility.Collapsed;
+        ProgressBar.IsIndeterminate = false;
+        PlayButton.Content = "Играть";
+    }
+
+    private void SetFailed(Exception exception)
+    {
+        _status = LauncherStatus.Failed;
+        StatusText.Text = "Не удалось установить игру. Проверьте подключение и повторите попытку.";
+        ProgressBar.Visibility = Visibility.Collapsed;
+        ProgressBar.IsIndeterminate = false;
+        PlayButton.Content = "Повторить";
+
+        MessageBox.Show(
+            this,
+            $"Не удалось подготовить игру.\n\n{exception.Message}",
+            "Ошибка лаунчера",
+            MessageBoxButton.OK,
+            MessageBoxImage.Error);
+    }
+
+    private async void PlayButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_status == LauncherStatus.Failed)
         {
-            string[] versionStrings = _version.Split('.');
-            if (versionStrings.Length != 3)
+            await CheckForUpdatesAsync();
+            return;
+        }
+
+        if (_status != LauncherStatus.Ready || _updater is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var startInfo = new ProcessStartInfo
             {
-                major = 0;
-                minor = 0;
-                subMinor = 0;
-                return;
-            }
+                FileName = _updater.GameExecutablePath,
+                WorkingDirectory = Path.GetDirectoryName(_updater.GameExecutablePath)!,
+                UseShellExecute = true
+            };
 
-            major = short.Parse(versionStrings[0]);
-            minor = short.Parse(versionStrings[1]);
-            subMinor = short.Parse(versionStrings[2]);
+            Process.Start(startInfo);
+            Close();
         }
-
-        internal bool IsDifferentThan(Version _otherVersion)
+        catch (Exception exception)
         {
-            if (major != _otherVersion.major)
-            {
-                return true;
-            }
-            else
-            {
-                if (minor != _otherVersion.minor)
-                {
-                    return true;
-                }
-                else
-                {
-                    if (subMinor != _otherVersion.subMinor)
-                    {
-                        return true;
-                    }
-                }
-            }
-            return false;
+            LogError(exception);
+            StatusText.Text = "Не удалось запустить игру.";
+            MessageBox.Show(
+                this,
+                $"Не удалось запустить игру.\n\n{exception.Message}",
+                "Ошибка запуска",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void Window_Closed(object? sender, EventArgs e)
+    {
+        _operationCancellation?.Cancel();
+    }
+
+    private void LogError(Exception exception)
+    {
+        try
+        {
+            string logEntry = $"[{DateTimeOffset.Now:O}] {exception}\n\n";
+            File.AppendAllText(Path.Combine(_rootPath, "launcher.log"), logEntry);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private void ApplyBranding(LauncherSettings settings)
+    {
+        if (string.IsNullOrWhiteSpace(settings.BackgroundImage))
+        {
+            BackgroundImage.Source = null;
+            return;
         }
 
-        public override string ToString()
+        string imagePath = ResolveInsideLauncherDirectory(settings.BackgroundImage);
+        if (!File.Exists(imagePath))
         {
-            return $"{major}.{minor}.{subMinor}";
+            throw new InvalidOperationException(
+                $"Не найден файл фона '{settings.BackgroundImage}'.");
         }
+
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.UriSource = new Uri(imagePath, UriKind.Absolute);
+        image.EndInit();
+        image.Freeze();
+        BackgroundImage.Source = image;
+    }
+
+    private string ResolveInsideLauncherDirectory(string relativePath)
+    {
+        string fullPath = Path.GetFullPath(Path.Combine(_rootPath, relativePath));
+        string rootWithSeparator = Path.TrimEndingDirectorySeparator(_rootPath)
+            + Path.DirectorySeparatorChar;
+
+        if (!fullPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Путь к оформлению выходит за пределы папки лаунчера.");
+        }
+
+        return fullPath;
+    }
+
+    private static HttpClient CreateHttpClient()
+    {
+        var handler = new HttpClientHandler
+        {
+            AutomaticDecompression = DecompressionMethods.All
+        };
+
+        return new HttpClient(handler)
+        {
+            Timeout = Timeout.InfiniteTimeSpan
+        };
     }
 }

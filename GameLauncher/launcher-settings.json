@@ -1,0 +1,9 @@
+{
+  "gameName": "Game Launcher",
+  "gameDirectory": "Build",
+  "gameExecutable": "MotorSport Unbounded Demo.exe",
+  "versionFile": "Version.txt",
+  "backgroundImage": "background.png",
+  "versionUrl": "https://drive.google.com/file/d/12a60daty53sQWRUJOcYbjTZ0YVThXTov/view?usp=sharing",
+  "packageUrl": "https://drive.google.com/file/d/1RywEdOMSj8pk5ioOC1S7-pGdG7D6NapQ/view?usp=drive_link"
+}
