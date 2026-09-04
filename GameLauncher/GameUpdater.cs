@@ -16,6 +16,16 @@ internal sealed record LauncherProgress(
     string Message,
     int? Percentage = null);
 
+internal sealed record GameCheckResult(
+    Version? LocalVersion,
+    Version OnlineVersion,
+    bool IsInstalled)
+{
+    public bool UpdateAvailable => !IsInstalled
+        || LocalVersion is null
+        || OnlineVersion.CompareTo(LocalVersion) > 0;
+}
+
 internal sealed record UpdateResult(Version Version, string Message);
 
 internal sealed class GameUpdater
@@ -23,12 +33,12 @@ internal sealed class GameUpdater
     private const int BufferSize = 81920;
 
     private readonly HttpClient _httpClient;
-    private readonly LauncherSettings _settings;
+    private readonly GameSettings _settings;
     private readonly string _rootPath;
     private readonly string _versionFilePath;
     private readonly string _gameDirectoryPath;
 
-    public GameUpdater(HttpClient httpClient, LauncherSettings settings, string rootPath)
+    public GameUpdater(HttpClient httpClient, GameSettings settings, string rootPath)
     {
         _httpClient = httpClient;
         _settings = settings;
@@ -56,7 +66,7 @@ internal sealed class GameUpdater
         }
     }
 
-    public async Task<UpdateResult> CheckAndUpdateAsync(
+    public async Task<GameCheckResult> CheckAsync(
         IProgress<LauncherProgress> progress,
         CancellationToken cancellationToken)
     {
@@ -65,15 +75,14 @@ internal sealed class GameUpdater
             "Проверяем наличие обновлений…"));
 
         Version onlineVersion = await DownloadVersionAsync(cancellationToken);
-        Version? localVersion = LocalVersion;
+        return new GameCheckResult(LocalVersion, onlineVersion, IsGameInstalled);
+    }
 
-        if (IsGameInstalled
-            && localVersion is not null
-            && onlineVersion.CompareTo(localVersion) <= 0)
-        {
-            return new UpdateResult(localVersion, "Игра готова к запуску.");
-        }
-
+    public async Task<UpdateResult> InstallOrUpdateAsync(
+        Version onlineVersion,
+        IProgress<LauncherProgress> progress,
+        CancellationToken cancellationToken)
+    {
         string downloadMessage = IsGameInstalled
             ? $"Загружаем обновление {onlineVersion}…"
             : $"Загружаем игру {onlineVersion}…";
@@ -203,6 +212,7 @@ internal sealed class GameUpdater
             }
 
             string packagedGamePath = FindPackagedGameDirectory(stagingPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(_gameDirectoryPath)!);
 
             if (Directory.Exists(_gameDirectoryPath))
             {
@@ -247,17 +257,42 @@ internal sealed class GameUpdater
 
     private string FindPackagedGameDirectory(string stagingPath)
     {
-        string nestedGamePath = Path.Combine(stagingPath, _settings.GameDirectory);
-        string nestedExecutablePath = Path.Combine(nestedGamePath, _settings.GameExecutable);
-        if (File.Exists(nestedExecutablePath))
+        string configuredDirectory = Path.Combine(stagingPath, _settings.GameDirectory);
+        string configuredExecutable = Path.Combine(configuredDirectory, _settings.GameExecutable);
+        if (File.Exists(configuredExecutable))
         {
-            return nestedGamePath;
+            return configuredDirectory;
         }
 
-        string rootExecutablePath = Path.Combine(stagingPath, _settings.GameExecutable);
-        if (File.Exists(rootExecutablePath))
+        string rootExecutable = Path.Combine(stagingPath, _settings.GameExecutable);
+        if (File.Exists(rootExecutable))
         {
             return stagingPath;
+        }
+
+        string executableFileName = Path.GetFileName(_settings.GameExecutable);
+        string normalizedExecutable = _settings.GameExecutable.Replace(
+            Path.AltDirectorySeparatorChar,
+            Path.DirectorySeparatorChar);
+
+        foreach (string candidate in Directory.EnumerateFiles(
+                     stagingPath,
+                     executableFileName,
+                     SearchOption.AllDirectories))
+        {
+            string relativeCandidate = Path.GetRelativePath(stagingPath, candidate);
+            if (!relativeCandidate.EndsWith(
+                    normalizedExecutable,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string packageRoot = relativeCandidate[..^normalizedExecutable.Length]
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return string.IsNullOrEmpty(packageRoot)
+                ? stagingPath
+                : Path.Combine(stagingPath, packageRoot);
         }
 
         throw new InvalidDataException(
@@ -272,7 +307,8 @@ internal sealed class GameUpdater
 
         if (!fullPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Путь в настройках выходит за пределы папки лаунчера.");
+            throw new InvalidOperationException(
+                "Путь в настройках выходит за пределы папки лаунчера.");
         }
 
         return fullPath;

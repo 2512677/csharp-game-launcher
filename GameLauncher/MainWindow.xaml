@@ -7,130 +7,357 @@
         WindowStartupLocation="CenterScreen"
         Closed="Window_Closed"
         ContentRendered="Window_ContentRendered"
-        Title="Игровой лаунчер"
-        Height="608"
-        Width="1080"
-        MinHeight="520"
-        MinWidth="820"
-        Background="#111820">
+        Title="Game Launcher"
+        Width="1180"
+        Height="720"
+        MinWidth="960"
+        MinHeight="640"
+        Background="#090C0F"
+        FontFamily="Segoe UI">
+    <Window.Resources>
+        <Style x:Key="GameCardItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Margin" Value="0,0,16,16"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="CardBorder"
+                                Padding="2"
+                                Background="#E8151A1F"
+                                BorderBrush="#2B343C"
+                                BorderThickness="2"
+                                CornerRadius="12"
+                                Cursor="Hand">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CardBorder"
+                                        Property="BorderBrush"
+                                        Value="#7EA8D600"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="CardBorder"
+                                        Property="BorderBrush"
+                                        Value="#C4F000"/>
+                                <Setter TargetName="CardBorder"
+                                        Property="Background"
+                                        Value="#F01B2228"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="CardBorder"
+                                        Property="Opacity"
+                                        Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TexturedActionButton" TargetType="Button">
+            <Setter Property="Width" Value="286"/>
+            <Setter Property="Height" Value="95"/>
+            <Setter Property="Padding" Value="42,17"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#101800"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid x:Name="ButtonRoot"
+                              Background="Transparent"
+                              RenderTransformOrigin="0.5,0.5">
+                            <Grid.RenderTransform>
+                                <ScaleTransform/>
+                            </Grid.RenderTransform>
+                            <Image x:Name="ButtonTexture"
+                                   Source="/Button.png"
+                                   Stretch="Uniform"
+                                   Opacity="0.94"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonTexture"
+                                        Property="Source"
+                                        Value="/Button_White.png"/>
+                                <Setter TargetName="ButtonTexture"
+                                        Property="Opacity"
+                                        Value="1"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonRoot"
+                                        Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="0.97" ScaleY="0.97"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonRoot"
+                                        Property="Opacity"
+                                        Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <Grid>
-        <Image x:Name="BackgroundImage" Stretch="UniformToFill"/>
+        <Image x:Name="BackgroundImage"
+               Stretch="UniformToFill"
+               Opacity="0.18"/>
         <Rectangle>
             <Rectangle.Fill>
-                <ImageBrush ImageSource="/background.png"/>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#F20A0D10" Offset="0"/>
+                    <GradientStop Color="#DC10161B" Offset="0.55"/>
+                    <GradientStop Color="#F0090C0F" Offset="1"/>
+                </LinearGradientBrush>
             </Rectangle.Fill>
         </Rectangle>
 
-        <Grid Margin="48,36">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-            <StackPanel>
-                <TextBlock x:Name="GameTitleText"
-                           Text="Лаунчер для внутренних тестов игр"
-                           FontSize="36"
-                           FontWeight="Bold"
-                           Foreground="White"/>
-                <TextBlock Text="Внутренний лаунчер"
-                           Margin="2,4,0,0"
-                           FontSize="16"
-                           Foreground="#CCFFFFFF"/>
-            </StackPanel>
+            <Border Grid.Column="0"
+                    Background="#E912171B"
+                    BorderBrush="#243038"
+                    BorderThickness="0,0,1,0">
+                <Grid Margin="22,28">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-            <Border Grid.Row="1"
-                    MaxWidth="600"
-                    Padding="24"
-                    HorizontalAlignment="Left"
-                    CornerRadius="12" Margin="313,244,0,10" Width="340">
-                <StackPanel>
-                    <TextBlock x:Name="StatusText"
-                               Text="Подготовка…"
-                               Margin="0,0,0,12"
-                               TextAlignment="Center"
-                               TextWrapping="Wrap"
-                               FontSize="16"
-                               Foreground="White"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="48"
+                                Height="48"
+                                Background="#C4F000"
+                                CornerRadius="12">
+                            <TextBlock Text="7W"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="19"
+                                       FontWeight="Black"
+                                       Foreground="#101500"/>
+                        </Border>
+                        <TextBlock x:Name="LauncherTitleText"
+                                   Width="120"
+                                   Margin="12,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Text="Game Launcher"
+                                   TextWrapping="Wrap"
+                                   FontSize="17"
+                                   FontWeight="SemiBold"
+                                   Foreground="White"/>
+                    </StackPanel>
 
-                    <ProgressBar x:Name="ProgressBar"
-                                 Height="8"
-                                 Margin="0,0,0,16"
-                                 Minimum="0"
-                                 Maximum="100"
-                                 IsIndeterminate="True"/>
+                    <Border Grid.Row="1"
+                            Margin="0,36,0,0"
+                            Padding="14,12"
+                            Background="#243027"
+                            CornerRadius="8">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="▦"
+                                       Margin="0,0,10,0"
+                                       FontSize="18"
+                                       Foreground="#C4F000"/>
+                            <TextBlock Text="Библиотека"
+                                       VerticalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       Foreground="White"/>
+                        </StackPanel>
+                    </Border>
 
-                    <Button x:Name="PlayButton"
-                            Content="Проверка…"
-                            Click="PlayButton_Click"
-                            Width="300"
-                            Height="100"
-                            Padding="44,18"
-                            HorizontalAlignment="Center"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Cursor="Hand"
-                            FontSize="23"
-                            FontWeight="Bold"
-                            Foreground="#FF101800"
-                            IsEnabled="False">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Grid x:Name="ButtonRoot"
-                                      Background="Transparent"
-                                      RenderTransformOrigin="0.5,0.5">
-                                    <Grid.RenderTransform>
-                                        <ScaleTransform/>
-                                    </Grid.RenderTransform>
-
-                                    <Image x:Name="ButtonTexture"
-                                           Source="/Button.png"
-                                           Stretch="Uniform"
-                                           Opacity="0.92"/>
-
-                                    <ContentPresenter Margin="{TemplateBinding Padding}"
-                                                      HorizontalAlignment="Center"
-                                                      VerticalAlignment="Center"
-                                                      RecognizesAccessKey="True"
-                                                      TextElement.Foreground="{TemplateBinding Foreground}"/>
-                                </Grid>
-
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="ButtonTexture"
-                                                Property="Source"
-                                                Value="/Button_White.png"/>
-                                        <Setter TargetName="ButtonTexture"
-                                                Property="Opacity"
-                                                Value="1"/>
-                                    </Trigger>
-                                    <Trigger Property="IsPressed" Value="True">
-                                        <Setter TargetName="ButtonRoot"
-                                                Property="RenderTransform">
-                                            <Setter.Value>
-                                                <ScaleTransform ScaleX="0.97" ScaleY="0.97"/>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </Trigger>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter TargetName="ButtonRoot"
-                                                Property="Opacity"
-                                                Value="0.58"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
-                    </Button>
-
-                    <TextBlock x:Name="VersionText"
-                               Text="Версия: —"
-                               Margin="0,12,0,0"
-                               HorizontalAlignment="Center"
-                               FontSize="13"
-                               Foreground="#BFFFFFFF"/>
-                </StackPanel>
+                    <StackPanel Grid.Row="3">
+                        <TextBlock Text="Игры добавляются через"
+                                   Foreground="#87939C"
+                                   FontSize="12"/>
+                        <TextBlock Text="launcher-settings.json"
+                                   Margin="0,4,0,0"
+                                   Foreground="#C4F000"
+                                   FontSize="12"/>
+                    </StackPanel>
+                </Grid>
             </Border>
+
+            <Grid Grid.Column="1" Margin="30,26,30,26">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Библиотека игр"
+                                   FontSize="30"
+                                   FontWeight="Bold"
+                                   Foreground="White"/>
+                        <TextBlock Text="Внутренние игровые сборки"
+                                   Margin="0,3,0,0"
+                                   Foreground="#8F9CA5"
+                                   FontSize="14"/>
+                    </StackPanel>
+                    <Border Grid.Column="1"
+                            Padding="12,7"
+                            VerticalAlignment="Center"
+                            Background="#1B2329"
+                            CornerRadius="8">
+                        <TextBlock x:Name="GameCountText"
+                                   Text="0 игр"
+                                   Foreground="#C4F000"
+                                   FontWeight="SemiBold"/>
+                    </Border>
+                </Grid>
+
+                <ListBox x:Name="GamesList"
+                         Grid.Row="1"
+                         Margin="0,24,0,0"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         SelectionChanged="GamesList_SelectionChanged"
+                         ItemContainerStyle="{StaticResource GameCardItemStyle}">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Width="190" Height="238">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="170"/>
+                                    <RowDefinition Height="68"/>
+                                </Grid.RowDefinitions>
+
+                                <Border Margin="5"
+                                        Background="#252D33"
+                                        CornerRadius="8">
+                                    <Grid>
+                                        <Image Source="{Binding CoverImage}"
+                                               Stretch="UniformToFill"/>
+                                        <Rectangle>
+                                            <Rectangle.Fill>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                    <GradientStop Color="#00000000" Offset="0.35"/>
+                                                    <GradientStop Color="#C9000000" Offset="1"/>
+                                                </LinearGradientBrush>
+                                            </Rectangle.Fill>
+                                        </Rectangle>
+                                        <TextBlock Text="{Binding Name}"
+                                                   Margin="12"
+                                                   VerticalAlignment="Bottom"
+                                                   TextWrapping="Wrap"
+                                                   FontSize="16"
+                                                   FontWeight="Bold"
+                                                   Foreground="White"/>
+                                    </Grid>
+                                </Border>
+
+                                <Grid Grid.Row="1" Margin="12,5,12,8">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="{Binding Description}"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="#9AA6AE"
+                                               FontSize="12"/>
+                                    <TextBlock Grid.Row="1"
+                                               Text="{Binding Status}"
+                                               Margin="0,4,0,0"
+                                               Foreground="#C4F000"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"/>
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Border Grid.Row="2"
+                        Margin="0,20,0,0"
+                        Padding="24,20"
+                        Background="#EE141A1F"
+                        BorderBrush="#29343C"
+                        BorderThickness="1"
+                        CornerRadius="14">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="310"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="SelectedGameNameText"
+                                       Text="Выберите игру"
+                                       FontSize="25"
+                                       FontWeight="Bold"
+                                       Foreground="White"/>
+                            <TextBlock x:Name="SelectedGameDescriptionText"
+                                       Text="Выберите игру из библиотеки"
+                                       Margin="0,4,0,10"
+                                       Foreground="#94A1AA"
+                                       FontSize="13"/>
+                            <TextBlock x:Name="StatusText"
+                                       Text="Ожидание…"
+                                       TextWrapping="Wrap"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="White"/>
+                            <ProgressBar x:Name="ProgressBar"
+                                         MaxWidth="430"
+                                         Height="7"
+                                         Margin="0,10,0,0"
+                                         Minimum="0"
+                                         Maximum="100"
+                                         Foreground="#C4F000"
+                                         Visibility="Collapsed"/>
+                            <TextBlock x:Name="VersionText"
+                                       Text="Версия: —"
+                                       Margin="0,9,0,0"
+                                       FontSize="12"
+                                       Foreground="#8E9AA3"/>
+                        </StackPanel>
+
+                        <Button x:Name="PlayButton"
+                                Grid.Column="1"
+                                Content="Выберите игру"
+                                Click="PlayButton_Click"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                IsEnabled="False"
+                                Style="{StaticResource TexturedActionButton}"/>
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
     </Grid>
 </Window>

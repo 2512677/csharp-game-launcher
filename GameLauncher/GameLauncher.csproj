@@ -13,7 +13,9 @@
     <None Remove="background.png" />
     <None Remove="Button.png" />
     <None Remove="Button_White.png" />
-    <None Remove="images\background.png" />
+    <None Remove="images\**\*.png" />
+    <None Remove="images\**\*.jpg" />
+    <None Remove="images\**\*.jpeg" />
     <None Remove="images\Icon.ico" />
   </ItemGroup>
 
@@ -28,7 +30,15 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <Content Include="images\background.png">
+    <Content Include="images\**\*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="images\**\*.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="images\**\*.jpeg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

@@ -1,15 +1,21 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace GameLauncher;
 
 internal enum LauncherStatus
 {
+    Idle,
     Checking,
+    NotInstalled,
+    UpdateAvailable,
     Downloading,
     Installing,
     Ready,
@@ -22,59 +28,116 @@ public partial class MainWindow : Window
 
     private readonly string _rootPath = AppContext.BaseDirectory;
     private CancellationTokenSource? _operationCancellation;
+    private GameCardViewModel? _selectedCard;
     private GameUpdater? _updater;
-    private LauncherStatus _status = LauncherStatus.Checking;
+    private Version? _onlineVersion;
+    private LauncherStatus _status = LauncherStatus.Idle;
 
     public MainWindow()
     {
         InitializeComponent();
     }
 
-    private async void Window_ContentRendered(object sender, EventArgs e)
+    private void Window_ContentRendered(object sender, EventArgs e)
     {
-        await CheckForUpdatesAsync();
+        LoadLibrary();
     }
 
-    private async Task CheckForUpdatesAsync()
+    private void LoadLibrary()
     {
-        if (_operationCancellation is not null)
-        {
-            return;
-        }
-
-        _operationCancellation = new CancellationTokenSource();
-        PlayButton.IsEnabled = false;
-
         try
         {
             LauncherSettings settings = LauncherSettings.Load(
                 Path.Combine(_rootPath, "launcher-settings.json"));
 
-            Title = $"{settings.GameName} — Лаунчер";
-            GameTitleText.Text = settings.GameName;
-            ApplyBranding(settings);
+            Title = settings.LauncherName;
+            LauncherTitleText.Text = settings.LauncherName;
 
-            _updater = new GameUpdater(HttpClient, settings, _rootPath);
-            var progress = new Progress<LauncherProgress>(ShowProgress);
-            UpdateResult result = await _updater.CheckAndUpdateAsync(
-                progress,
-                _operationCancellation.Token);
+            List<GameCardViewModel> games = settings.Games
+                .Select(game => new GameCardViewModel(game, LoadImage(game.CoverImage)))
+                .ToList();
 
-            SetReady(result.Version, result.Message);
+            GamesList.ItemsSource = games;
+            GameCountText.Text = FormatGameCount(games.Count);
+            GamesList.SelectedIndex = 0;
         }
-        catch (OperationCanceledException) when (_operationCancellation.IsCancellationRequested)
+        catch (Exception exception)
+        {
+            LogError(exception);
+            SetFailed(exception);
+            MessageBox.Show(
+                this,
+                $"Не удалось загрузить библиотеку игр.\n\n{exception.Message}",
+                "Ошибка настроек",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private async void GamesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (GamesList.SelectedItem is not GameCardViewModel card || card == _selectedCard)
+        {
+            return;
+        }
+
+        _selectedCard = card;
+        _updater = new GameUpdater(HttpClient, card.Settings, _rootPath);
+        _onlineVersion = null;
+
+        SelectedGameNameText.Text = card.Name;
+        SelectedGameDescriptionText.Text = string.IsNullOrWhiteSpace(card.Description)
+            ? "Внутренняя игровая сборка"
+            : card.Description;
+        BackgroundImage.Source = LoadImage(card.Settings.BackgroundImage) ?? card.CoverImage;
+
+        await CheckSelectedGameAsync();
+    }
+
+    private async Task CheckSelectedGameAsync()
+    {
+        if (_updater is null || _selectedCard is null || !TryBeginOperation())
+        {
+            return;
+        }
+
+        GameUpdater updater = _updater;
+        GameCardViewModel card = _selectedCard;
+        CancellationTokenSource operation = _operationCancellation!;
+        var progress = new Progress<LauncherProgress>(ShowProgress);
+
+        try
+        {
+            card.Status = "Проверка…";
+            GameCheckResult result = await updater.CheckAsync(progress, operation.Token);
+            _onlineVersion = result.OnlineVersion;
+
+            if (!result.IsInstalled)
+            {
+                SetNotInstalled(result.OnlineVersion);
+            }
+            else if (result.UpdateAvailable)
+            {
+                SetUpdateAvailable(result.LocalVersion, result.OnlineVersion);
+            }
+            else
+            {
+                SetReady(result.LocalVersion, "Игра готова к запуску.");
+            }
+        }
+        catch (OperationCanceledException) when (operation.IsCancellationRequested)
         {
             StatusText.Text = "Операция отменена.";
         }
         catch (Exception exception)
         {
             LogError(exception);
-
-            if (_updater?.IsGameInstalled == true)
+            if (updater.IsGameInstalled)
             {
                 SetReady(
-                    _updater.LocalVersion,
-                    "Сервер обновлений недоступен. Можно играть в установленную версию.");
+                    updater.LocalVersion,
+                    "Сервер обновлений недоступен. Можно играть офлайн.",
+                    "Офлайн");
             }
             else
             {
@@ -83,9 +146,60 @@ public partial class MainWindow : Window
         }
         finally
         {
-            _operationCancellation.Dispose();
-            _operationCancellation = null;
-            PlayButton.IsEnabled = _status is LauncherStatus.Ready or LauncherStatus.Failed;
+            EndOperation(operation);
+        }
+    }
+
+    private async Task InstallSelectedGameAsync()
+    {
+        if (_updater is null
+            || _selectedCard is null
+            || _onlineVersion is null
+            || !TryBeginOperation())
+        {
+            return;
+        }
+
+        GameUpdater updater = _updater;
+        CancellationTokenSource operation = _operationCancellation!;
+        var progress = new Progress<LauncherProgress>(ShowProgress);
+
+        try
+        {
+            UpdateResult result = await updater.InstallOrUpdateAsync(
+                _onlineVersion,
+                progress,
+                operation.Token);
+            SetReady(result.Version, result.Message);
+        }
+        catch (OperationCanceledException) when (operation.IsCancellationRequested)
+        {
+            StatusText.Text = "Операция отменена.";
+        }
+        catch (Exception exception)
+        {
+            LogError(exception);
+            if (updater.IsGameInstalled)
+            {
+                SetReady(
+                    updater.LocalVersion,
+                    "Обновление не установлено. Можно запустить прежнюю версию.",
+                    "Ошибка обновления");
+            }
+            else
+            {
+                SetFailed(exception);
+                MessageBox.Show(
+                    this,
+                    $"Не удалось установить игру.\n\n{exception.Message}",
+                    "Ошибка установки",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+        finally
+        {
+            EndOperation(operation);
         }
     }
 
@@ -113,44 +227,133 @@ public partial class MainWindow : Window
         if (progress.Percentage is int percentage)
         {
             ProgressBar.Value = percentage;
+            if (_selectedCard is not null)
+            {
+                _selectedCard.Status = $"Загрузка {percentage}%";
+            }
+        }
+        else if (_selectedCard is not null)
+        {
+            _selectedCard.Status = progress.Phase switch
+            {
+                LauncherPhase.Checking => "Проверка…",
+                LauncherPhase.Installing => "Установка…",
+                _ => _selectedCard.Status
+            };
         }
     }
 
-    private void SetReady(Version? version, string message)
+    private void SetNotInstalled(Version onlineVersion)
+    {
+        _status = LauncherStatus.NotInstalled;
+        StatusText.Text = "Игра ещё не установлена.";
+        VersionText.Text = $"Доступная версия: {onlineVersion}";
+        PlayButton.Content = "Установить";
+        HideProgress();
+
+        if (_selectedCard is not null)
+        {
+            _selectedCard.Status = "Не установлена";
+        }
+    }
+
+    private void SetUpdateAvailable(Version? localVersion, Version onlineVersion)
+    {
+        _status = LauncherStatus.UpdateAvailable;
+        StatusText.Text = "Доступно обновление.";
+        VersionText.Text = $"Установлена: {localVersion}  •  Доступна: {onlineVersion}";
+        PlayButton.Content = "Обновить";
+        HideProgress();
+
+        if (_selectedCard is not null)
+        {
+            _selectedCard.Status = $"Обновление {onlineVersion}";
+        }
+    }
+
+    private void SetReady(Version? version, string message, string cardStatus = "Готова")
     {
         _status = LauncherStatus.Ready;
-        VersionText.Text = version is null ? "Версия: неизвестна" : $"Версия: {version}";
         StatusText.Text = message;
-        ProgressBar.Visibility = Visibility.Collapsed;
-        ProgressBar.IsIndeterminate = false;
+        VersionText.Text = version is null ? "Версия: неизвестна" : $"Версия: {version}";
         PlayButton.Content = "Играть";
+        HideProgress();
+
+        if (_selectedCard is not null)
+        {
+            _selectedCard.Status = cardStatus;
+        }
     }
 
     private void SetFailed(Exception exception)
     {
         _status = LauncherStatus.Failed;
-        StatusText.Text = "Не удалось установить игру. Проверьте подключение и повторите попытку.";
+        StatusText.Text = $"Ошибка: {exception.Message}";
+        VersionText.Text = "Версия: —";
+        PlayButton.Content = "Повторить";
+        HideProgress();
+
+        if (_selectedCard is not null)
+        {
+            _selectedCard.Status = "Ошибка";
+        }
+    }
+
+    private void HideProgress()
+    {
         ProgressBar.Visibility = Visibility.Collapsed;
         ProgressBar.IsIndeterminate = false;
-        PlayButton.Content = "Повторить";
+    }
 
-        MessageBox.Show(
-            this,
-            $"Не удалось подготовить игру.\n\n{exception.Message}",
-            "Ошибка лаунчера",
-            MessageBoxButton.OK,
-            MessageBoxImage.Error);
+    private bool TryBeginOperation()
+    {
+        if (_operationCancellation is not null)
+        {
+            return false;
+        }
+
+        _operationCancellation = new CancellationTokenSource();
+        GamesList.IsEnabled = false;
+        PlayButton.IsEnabled = false;
+        return true;
+    }
+
+    private void EndOperation(CancellationTokenSource operation)
+    {
+        if (!ReferenceEquals(_operationCancellation, operation))
+        {
+            return;
+        }
+
+        operation.Dispose();
+        _operationCancellation = null;
+        GamesList.IsEnabled = true;
+        PlayButton.IsEnabled = _status is LauncherStatus.NotInstalled
+            or LauncherStatus.UpdateAvailable
+            or LauncherStatus.Ready
+            or LauncherStatus.Failed;
     }
 
     private async void PlayButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_status == LauncherStatus.Failed)
+        switch (_status)
         {
-            await CheckForUpdatesAsync();
-            return;
+            case LauncherStatus.NotInstalled:
+            case LauncherStatus.UpdateAvailable:
+                await InstallSelectedGameAsync();
+                break;
+            case LauncherStatus.Ready:
+                LaunchSelectedGame();
+                break;
+            case LauncherStatus.Failed:
+                await CheckSelectedGameAsync();
+                break;
         }
+    }
 
-        if (_status != LauncherStatus.Ready || _updater is null)
+    private void LaunchSelectedGame()
+    {
+        if (_updater is null)
         {
             return;
         }
@@ -165,12 +368,13 @@ public partial class MainWindow : Window
             };
 
             Process.Start(startInfo);
-            Close();
+            StatusText.Text = "Игра запущена.";
+            WindowState = WindowState.Minimized;
         }
         catch (Exception exception)
         {
             LogError(exception);
-            StatusText.Text = "Не удалось запустить игру.";
+            SetFailed(exception);
             MessageBox.Show(
                 this,
                 $"Не удалось запустить игру.\n\n{exception.Message}",
@@ -185,34 +389,17 @@ public partial class MainWindow : Window
         _operationCancellation?.Cancel();
     }
 
-    private void LogError(Exception exception)
+    private ImageSource? LoadImage(string? relativePath)
     {
-        try
+        if (string.IsNullOrWhiteSpace(relativePath))
         {
-            string logEntry = $"[{DateTimeOffset.Now:O}] {exception}\n\n";
-            File.AppendAllText(Path.Combine(_rootPath, "launcher.log"), logEntry);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
-
-    private void ApplyBranding(LauncherSettings settings)
-    {
-        if (string.IsNullOrWhiteSpace(settings.BackgroundImage))
-        {
-            BackgroundImage.Source = null;
-            return;
+            return null;
         }
 
-        string imagePath = ResolveInsideLauncherDirectory(settings.BackgroundImage);
+        string imagePath = ResolveInsideLauncherDirectory(relativePath);
         if (!File.Exists(imagePath))
         {
-            throw new InvalidOperationException(
-                $"Не найден файл фона '{settings.BackgroundImage}'.");
+            return null;
         }
 
         var image = new BitmapImage();
@@ -221,7 +408,7 @@ public partial class MainWindow : Window
         image.UriSource = new Uri(imagePath, UriKind.Absolute);
         image.EndInit();
         image.Freeze();
-        BackgroundImage.Source = image;
+        return image;
     }
 
     private string ResolveInsideLauncherDirectory(string relativePath)
@@ -233,10 +420,42 @@ public partial class MainWindow : Window
         if (!fullPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException(
-                "Путь к оформлению выходит за пределы папки лаунчера.");
+                "Путь к изображению выходит за пределы папки лаунчера.");
         }
 
         return fullPath;
+    }
+
+    private void LogError(Exception exception)
+    {
+        try
+        {
+            string gameId = _selectedCard?.Settings.Id ?? "launcher";
+            string logEntry = $"[{DateTimeOffset.Now:O}] [{gameId}] {exception}\n\n";
+            File.AppendAllText(Path.Combine(_rootPath, "launcher.log"), logEntry);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static string FormatGameCount(int count)
+    {
+        int lastTwoDigits = count % 100;
+        int lastDigit = count % 10;
+        string word = lastTwoDigits is >= 11 and <= 14
+            ? "игр"
+            : lastDigit switch
+            {
+                1 => "игра",
+                2 or 3 or 4 => "игры",
+                _ => "игр"
+            };
+
+        return $"{count} {word}";
     }
 
     private static HttpClient CreateHttpClient()
@@ -250,5 +469,38 @@ public partial class MainWindow : Window
         {
             Timeout = Timeout.InfiniteTimeSpan
         };
+    }
+}
+
+internal sealed class GameCardViewModel : INotifyPropertyChanged
+{
+    private string _status = "Не проверено";
+
+    public GameCardViewModel(GameSettings settings, ImageSource? coverImage)
+    {
+        Settings = settings;
+        CoverImage = coverImage;
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public GameSettings Settings { get; }
+    public string Name => Settings.Name;
+    public string Description => Settings.Description;
+    public ImageSource? CoverImage { get; }
+
+    public string Status
+    {
+        get => _status;
+        set
+        {
+            if (_status == value)
+            {
+                return;
+            }
+
+            _status = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Status)));
+        }
     }
 }

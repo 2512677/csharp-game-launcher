@@ -1,20 +1,13 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace GameLauncher;
 
 internal sealed class LauncherSettings
 {
-    public string GameName { get; init; } = string.Empty;
-    public string GameDirectory { get; init; } = string.Empty;
-    public string GameExecutable { get; init; } = string.Empty;
-    public string VersionFile { get; init; } = "Version.txt";
-    public string? BackgroundImage { get; init; }
-    public string VersionUrl { get; init; } = string.Empty;
-    public string PackageUrl { get; init; } = string.Empty;
-
-    public Uri VersionUri { get; private set; } = null!;
-    public Uri PackageUri { get; private set; } = null!;
+    public string LauncherName { get; init; } = "Game Launcher";
+    public List<GameSettings> Games { get; init; } = [];
 
     public static LauncherSettings Load(string filePath)
     {
@@ -39,47 +32,126 @@ internal sealed class LauncherSettings
 
     private void Validate()
     {
-        if (string.IsNullOrWhiteSpace(GameName))
+        if (string.IsNullOrWhiteSpace(LauncherName))
         {
-            throw new InvalidOperationException("В настройках не задано название игры.");
+            throw new InvalidOperationException("В настройках не задано название лаунчера.");
         }
 
-        if (string.IsNullOrWhiteSpace(GameDirectory)
-            || Path.IsPathRooted(GameDirectory)
-            || GameDirectory is "." or ".."
-            || GameDirectory.Contains(Path.DirectorySeparatorChar)
-            || GameDirectory.Contains(Path.AltDirectorySeparatorChar))
+        if (Games.Count == 0)
         {
-            throw new InvalidOperationException("Папка игры должна быть простым относительным именем.");
+            throw new InvalidOperationException("В настройках не добавлено ни одной игры.");
         }
 
-        if (string.IsNullOrWhiteSpace(GameExecutable) || Path.IsPathRooted(GameExecutable))
+        var gameIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var gameDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var versionFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (GameSettings game in Games)
         {
-            throw new InvalidOperationException("Исполняемый файл игры должен быть относительным путём.");
+            game.Validate();
+            if (!gameIds.Add(game.Id))
+            {
+                throw new InvalidOperationException(
+                    $"Идентификатор игры '{game.Id}' используется несколько раз.");
+            }
+
+            if (!gameDirectories.Add(game.GameDirectory))
+            {
+                throw new InvalidOperationException(
+                    $"Папка игры '{game.GameDirectory}' используется несколько раз.");
+            }
+
+            if (!versionFiles.Add(game.VersionFile))
+            {
+                throw new InvalidOperationException(
+                    $"Файл версии '{game.VersionFile}' используется несколько раз.");
+            }
         }
+    }
+}
+
+internal sealed class GameSettings
+{
+    public string Id { get; init; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string GameDirectory { get; init; } = string.Empty;
+    public string GameExecutable { get; init; } = string.Empty;
+    public string VersionFile { get; init; } = string.Empty;
+    public string? CoverImage { get; init; }
+    public string? BackgroundImage { get; init; }
+    public string VersionUrl { get; init; } = string.Empty;
+    public string PackageUrl { get; init; } = string.Empty;
+
+    [JsonIgnore]
+    public Uri VersionUri { get; private set; } = null!;
+
+    [JsonIgnore]
+    public Uri PackageUri { get; private set; } = null!;
+
+    internal void Validate()
+    {
+        if (string.IsNullOrWhiteSpace(Id)
+            || Id.Any(character => !char.IsLetterOrDigit(character)
+                && character is not '-' and not '_'))
+        {
+            throw new InvalidOperationException(
+                "Идентификатор игры может содержать только буквы, цифры, дефис и подчёркивание.");
+        }
+
+        if (string.IsNullOrWhiteSpace(Name))
+        {
+            throw new InvalidOperationException($"У игры '{Id}' не задано название.");
+        }
+
+        ValidateRelativePath(GameDirectory, "папка игры");
+        ValidateRelativePath(GameExecutable, "исполняемый файл игры");
 
         if (string.IsNullOrWhiteSpace(VersionFile)
             || Path.IsPathRooted(VersionFile)
             || Path.GetFileName(VersionFile) != VersionFile)
         {
-            throw new InvalidOperationException("Файл версии должен быть простым именем файла.");
+            throw new InvalidOperationException(
+                $"У игры '{Name}' файл версии должен быть простым именем файла.");
         }
 
-        if (!string.IsNullOrWhiteSpace(BackgroundImage) && Path.IsPathRooted(BackgroundImage))
-        {
-            throw new InvalidOperationException("Фоновое изображение должно быть относительным путём.");
-        }
+        ValidateOptionalRelativePath(CoverImage, "обложка");
+        ValidateOptionalRelativePath(BackgroundImage, "фон");
 
         VersionUri = NormalizeDownloadUri(ParseHttpUri(VersionUrl, "адрес версии"));
         PackageUri = NormalizeDownloadUri(ParseHttpUri(PackageUrl, "адрес архива игры"));
     }
 
-    private static Uri ParseHttpUri(string value, string settingName)
+    private void ValidateRelativePath(string value, string settingName)
+    {
+        if (string.IsNullOrWhiteSpace(value) || Path.IsPathRooted(value))
+        {
+            throw new InvalidOperationException(
+                $"У игры '{Name}' параметр '{settingName}' должен быть относительным путём.");
+        }
+
+        string[] segments = value.Replace('\\', '/').Split('/');
+        if (segments.Any(segment => string.IsNullOrWhiteSpace(segment) || segment is "." or ".."))
+        {
+            throw new InvalidOperationException(
+                $"У игры '{Name}' параметр '{settingName}' содержит недопустимый путь.");
+        }
+    }
+
+    private void ValidateOptionalRelativePath(string? value, string settingName)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            ValidateRelativePath(value, settingName);
+        }
+    }
+
+    private Uri ParseHttpUri(string value, string settingName)
     {
         if (!Uri.TryCreate(value, UriKind.Absolute, out Uri? uri)
             || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
         {
-            throw new InvalidOperationException($"Некорректный {settingName} в настройках.");
+            throw new InvalidOperationException(
+                $"У игры '{Name}' указан некорректный {settingName}.");
         }
 
         return uri;
