@@ -10,9 +10,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="background.png" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Button.png" />
     <None Remove="Button_White.png" />
+    <None Remove="sherdorgame.png" />
     <None Remove="images\**\*.png" />
     <None Remove="images\**\*.jpg" />
     <None Remove="images\**\*.jpeg" />
@@ -22,14 +26,11 @@
   <ItemGroup>
     <Resource Include="Button.png" />
     <Resource Include="Button_White.png" />
+    <Resource Include="sherdorgame.png" />
     <Resource Include="images\Icon.ico" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="background.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
     <Content Include="images\**\*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -43,6 +44,10 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
     <Content Include="launcher-settings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="web\youtube-player.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

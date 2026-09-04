@@ -1,0 +1,309 @@
+<Window x:Class="GameLauncher.GameDetailsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="Игра"
+        Width="1040"
+        Height="820"
+        MinWidth="880"
+        MinHeight="700"
+        WindowStartupLocation="CenterOwner"
+        Background="#090C0F"
+        Foreground="White"
+        FontFamily="Segoe UI"
+        ContentRendered="Window_ContentRendered"
+        Closed="Window_Closed">
+    <Window.Resources>
+        <Style x:Key="TexturedActionButton" TargetType="Button">
+            <Setter Property="Width" Value="300"/>
+            <Setter Property="Height" Value="100"/>
+            <Setter Property="Padding" Value="44,18"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="23"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#101800"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid x:Name="ButtonRoot"
+                              Background="Transparent"
+                              RenderTransformOrigin="0.5,0.5">
+                            <Grid.RenderTransform>
+                                <ScaleTransform/>
+                            </Grid.RenderTransform>
+                            <Image x:Name="ButtonTexture"
+                                   Source="/Button.png"
+                                   Stretch="Uniform"
+                                   Opacity="0.94"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonTexture"
+                                        Property="Source"
+                                        Value="/Button_White.png"/>
+                                <Setter TargetName="ButtonTexture"
+                                        Property="Opacity"
+                                        Value="1"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonRoot"
+                                        Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="0.97" ScaleY="0.97"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonRoot"
+                                        Property="Opacity"
+                                        Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SlideNavigationButton" TargetType="Button">
+            <Setter Property="Width" Value="38"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Background" Value="#D91B2329"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#53616A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="19"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style x:Key="EditGameButton" TargetType="Button">
+            <Setter Property="Padding" Value="16,9"/>
+            <Setter Property="Background" Value="#1B252B"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#46545D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Image x:Name="BackgroundImage"
+               Stretch="UniformToFill"
+               Opacity="0.2"/>
+        <Rectangle Fill="#D90A0E11"/>
+
+        <Grid Margin="34,28">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock x:Name="GameNameText"
+                               Text="Название игры"
+                               FontSize="32"
+                               FontWeight="Bold"/>
+                    <TextBlock Text="Внутренняя библиотека"
+                               Margin="0,3,0,0"
+                               Foreground="#99A6AE"/>
+                </StackPanel>
+                <Button x:Name="EditGameButton"
+                        Grid.Column="1"
+                        Content="✎  Редактировать"
+                        VerticalAlignment="Center"
+                        Click="EditGameButton_Click"
+                        Style="{StaticResource EditGameButton}"/>
+            </Grid>
+
+            <Grid Grid.Row="1" Margin="0,25,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="350"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Background="#161D22"
+                        BorderBrush="#34414A"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        Padding="8"
+                        ClipToBounds="True">
+                    <Grid>
+                        <Image x:Name="CoverImage" Stretch="Uniform"/>
+                        <Border x:Name="SlideshowControls"
+                                Margin="12"
+                                Padding="8,6"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                Background="#D90B1014"
+                                CornerRadius="8"
+                                Visibility="Collapsed">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Content="‹"
+                                        Click="PreviousSlideButton_Click"
+                                        Style="{StaticResource SlideNavigationButton}"/>
+                                <TextBlock x:Name="SlideCounterText"
+                                           Grid.Column="1"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Text="1 / 1"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="White"/>
+                                <Button Grid.Column="2"
+                                        Content="›"
+                                        Click="NextSlideButton_Click"
+                                        Style="{StaticResource SlideNavigationButton}"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1"
+                        Margin="24,0,0,0"
+                        Padding="28"
+                        Background="#EE141A1F"
+                        BorderBrush="#34414A"
+                        BorderThickness="1"
+                        CornerRadius="14">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <Image x:Name="LogoImage"
+                               Height="90"
+                               MaxWidth="260"
+                               HorizontalAlignment="Left"
+                               Stretch="Uniform"/>
+
+                        <Grid Grid.Row="1" Margin="0,22,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Border x:Name="VideoPanel"
+                                    Grid.Row="0"
+                                    Width="390"
+                                    Height="220"
+                                    Margin="0,0,0,16"
+                                    HorizontalAlignment="Center"
+                                    Background="Black"
+                                    BorderBrush="#34414A"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    ClipToBounds="True"
+                                    Visibility="Collapsed">
+                                <Grid>
+                                    <wv2:WebView2 x:Name="YoutubePlayer"/>
+                                    <Border x:Name="VideoFallbackPanel"
+                                            Background="#10161A"
+                                            Visibility="Collapsed">
+                                        <StackPanel HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="Не удалось открыть встроенный видеоплеер."
+                                                       TextAlignment="Center"
+                                                       Foreground="#B7C0C6"/>
+                                            <Button Content="Повторить загрузку"
+                                                    Margin="0,12,0,0"
+                                                    Padding="14,8"
+                                                    Click="RetryYoutubeButton_Click"
+                                                    Background="#C4F000"
+                                                    Foreground="#101500"
+                                                    BorderThickness="0"
+                                                    FontWeight="Bold"
+                                                    Cursor="Hand"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <TextBlock Grid.Row="1"
+                                       Text="Об игре"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="#C4F000"/>
+                            <Border Grid.Row="2"
+                                    Margin="0,7,0,18"
+                                    Padding="10,8"
+                                    Background="#7010161A"
+                                    CornerRadius="6">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              PanningMode="VerticalOnly">
+                                    <TextBlock x:Name="DescriptionText"
+                                               Text="Описание игры"
+                                               TextWrapping="Wrap"
+                                               FontSize="15"
+                                               Foreground="#D7DDE1"/>
+                                </ScrollViewer>
+                            </Border>
+                            <TextBlock x:Name="StatusText"
+                                       Grid.Row="3"
+                                       Text="Подготовка…"
+                                       TextWrapping="Wrap"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"/>
+                            <ProgressBar x:Name="ProgressBar"
+                                         Grid.Row="4"
+                                         Height="8"
+                                         Margin="0,12,0,0"
+                                         Minimum="0"
+                                         Maximum="100"
+                                         Foreground="#C4F000"
+                                         Visibility="Collapsed"/>
+                            <TextBlock x:Name="VersionText"
+                                       Grid.Row="5"
+                                       Text="Версия: —"
+                                       Margin="0,10,0,0"
+                                       FontSize="13"
+                                       Foreground="#94A1AA"/>
+                        </Grid>
+
+                        <StackPanel Grid.Row="2"
+                                    HorizontalAlignment="Right"
+                                    Orientation="Horizontal">
+                            <Button x:Name="UpdateButton"
+                                    Width="230"
+                                    Height="86"
+                                    Margin="0,0,8,0"
+                                    Content="Обновить"
+                                    Click="UpdateButton_Click"
+                                    IsEnabled="False"
+                                    Visibility="Collapsed"
+                                    Style="{StaticResource TexturedActionButton}"/>
+                            <Button x:Name="ActionButton"
+                                    Width="230"
+                                    Height="86"
+                                    Content="Проверка…"
+                                    Click="ActionButton_Click"
+                                    IsEnabled="False"
+                                    Style="{StaticResource TexturedActionButton}"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -6,7 +7,7 @@ namespace GameLauncher;
 
 internal sealed class LauncherSettings
 {
-    public string LauncherName { get; init; } = "Game Launcher";
+    public string LauncherName { get; init; } = "Sherdor Games Launcher";
     public List<GameSettings> Games { get; init; } = [];
 
     public static LauncherSettings Load(string filePath)
@@ -30,16 +31,72 @@ internal sealed class LauncherSettings
         return settings;
     }
 
+    public void AddGame(GameSettings game)
+    {
+        Games.Add(game);
+        try
+        {
+            Validate();
+        }
+        catch
+        {
+            Games.Remove(game);
+            throw;
+        }
+    }
+
+    public void ReplaceGame(GameSettings existingGame, GameSettings updatedGame)
+    {
+        int index = Games.IndexOf(existingGame);
+        if (index < 0)
+        {
+            throw new InvalidOperationException("Редактируемая игра не найдена в настройках.");
+        }
+
+        Games[index] = updatedGame;
+        try
+        {
+            Validate();
+        }
+        catch
+        {
+            Games[index] = existingGame;
+            throw;
+        }
+    }
+
+    public void Save(string filePath)
+    {
+        Validate();
+
+        string json = JsonSerializer.Serialize(
+            this,
+            new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            });
+        string temporaryPath = filePath + ".tmp";
+
+        try
+        {
+            File.WriteAllText(temporaryPath, json);
+            File.Move(temporaryPath, filePath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+        }
+    }
+
     private void Validate()
     {
         if (string.IsNullOrWhiteSpace(LauncherName))
         {
             throw new InvalidOperationException("В настройках не задано название лаунчера.");
-        }
-
-        if (Games.Count == 0)
-        {
-            throw new InvalidOperationException("В настройках не добавлено ни одной игры.");
         }
 
         var gameIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -74,11 +131,16 @@ internal sealed class GameSettings
     public string Id { get; init; } = string.Empty;
     public string Name { get; init; } = string.Empty;
     public string Description { get; init; } = string.Empty;
+    public string Category { get; init; } = GameCatalog.ReleaseCategory;
+    public List<string> Genres { get; init; } = [];
     public string GameDirectory { get; init; } = string.Empty;
     public string GameExecutable { get; init; } = string.Empty;
     public string VersionFile { get; init; } = string.Empty;
+    public string? LogoImage { get; init; }
     public string? CoverImage { get; init; }
     public string? BackgroundImage { get; init; }
+    public List<string> SlideshowImages { get; init; } = [];
+    public string? YoutubeUrl { get; init; }
     public string VersionUrl { get; init; } = string.Empty;
     public string PackageUrl { get; init; } = string.Empty;
 
@@ -87,6 +149,9 @@ internal sealed class GameSettings
 
     [JsonIgnore]
     public Uri PackageUri { get; private set; } = null!;
+
+    [JsonIgnore]
+    public string? YoutubeVideoId { get; private set; }
 
     internal void Validate()
     {
@@ -103,6 +168,24 @@ internal sealed class GameSettings
             throw new InvalidOperationException($"У игры '{Id}' не задано название.");
         }
 
+        if (!GameCatalog.IsKnownCategory(Category))
+        {
+            throw new InvalidOperationException(
+                $"У игры '{Name}' указана неизвестная категория сборки.");
+        }
+
+        if (Genres.Any(genre => !GameCatalog.IsKnownGenre(genre)))
+        {
+            throw new InvalidOperationException(
+                $"У игры '{Name}' указан неизвестный жанр.");
+        }
+
+        if (Genres.Distinct(StringComparer.OrdinalIgnoreCase).Count() != Genres.Count)
+        {
+            throw new InvalidOperationException(
+                $"У игры '{Name}' один и тот же жанр указан несколько раз.");
+        }
+
         ValidateRelativePath(GameDirectory, "папка игры");
         ValidateRelativePath(GameExecutable, "исполняемый файл игры");
 
@@ -114,9 +197,15 @@ internal sealed class GameSettings
                 $"У игры '{Name}' файл версии должен быть простым именем файла.");
         }
 
+        ValidateOptionalRelativePath(LogoImage, "логотип");
         ValidateOptionalRelativePath(CoverImage, "обложка");
         ValidateOptionalRelativePath(BackgroundImage, "фон");
+        foreach (string slideshowImage in SlideshowImages)
+        {
+            ValidateRelativePath(slideshowImage, "изображение слайд-шоу");
+        }
 
+        YoutubeVideoId = ParseYoutubeVideoId(YoutubeUrl);
         VersionUri = NormalizeDownloadUri(ParseHttpUri(VersionUrl, "адрес версии"));
         PackageUri = NormalizeDownloadUri(ParseHttpUri(PackageUrl, "адрес архива игры"));
     }
@@ -155,6 +244,49 @@ internal sealed class GameSettings
         }
 
         return uri;
+    }
+
+    private string? ParseYoutubeVideoId(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        Uri uri = ParseHttpUri(value.Trim(), "адрес YouTube-видео");
+        string host = uri.Host.ToLowerInvariant();
+        if (host.StartsWith("www.", StringComparison.Ordinal))
+        {
+            host = host[4..];
+        }
+
+        string[] segments = uri.AbsolutePath.Split(
+            '/',
+            StringSplitOptions.RemoveEmptyEntries);
+        string? videoId = host switch
+        {
+            "youtu.be" when segments.Length >= 1 => segments[0],
+            "youtube.com" or "m.youtube.com" when uri.AbsolutePath.Equals(
+                "/watch",
+                StringComparison.OrdinalIgnoreCase) => GetQueryValue(uri, "v"),
+            "youtube.com" or "m.youtube.com" or "youtube-nocookie.com"
+                when segments.Length >= 2
+                    && (segments[0].Equals("embed", StringComparison.OrdinalIgnoreCase)
+                        || segments[0].Equals("shorts", StringComparison.OrdinalIgnoreCase))
+                => segments[1],
+            _ => null
+        };
+
+        if (string.IsNullOrWhiteSpace(videoId)
+            || videoId.Length > 64
+            || videoId.Any(character => !char.IsLetterOrDigit(character)
+                && character is not '-' and not '_'))
+        {
+            throw new InvalidOperationException(
+                $"У игры '{Name}' указана некорректная ссылка на YouTube-видео.");
+        }
+
+        return videoId;
     }
 
     private static Uri NormalizeDownloadUri(Uri uri)
@@ -217,5 +349,61 @@ internal sealed class GameSettings
         }
 
         return null;
+    }
+}
+
+internal sealed record BuildCategoryOption(string Id, string DisplayName);
+
+internal static class GameCatalog
+{
+    public const string EarlyAccessCategory = "early-access";
+    public const string DemoCategory = "demo";
+    public const string ReleaseCategory = "release";
+
+    public static IReadOnlyList<BuildCategoryOption> BuildCategories { get; } =
+    [
+        new(EarlyAccessCategory, "Ранний доступ"),
+        new(DemoCategory, "Демо"),
+        new(ReleaseCategory, "Релиз")
+    ];
+
+    public static IReadOnlyList<string> Genres { get; } =
+    [
+        "Экшен",
+        "Приключения",
+        "RPG",
+        "Стратегия",
+        "Симулятор",
+        "Гонки",
+        "Спорт",
+        "Шутер",
+        "Файтинг",
+        "Платформер",
+        "Головоломка",
+        "Хоррор",
+        "Выживание",
+        "Песочница",
+        "Казуальная",
+        "Онлайн"
+    ];
+
+    public static bool IsKnownCategory(string? category)
+    {
+        return BuildCategories.Any(option => option.Id.Equals(
+            category,
+            StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static bool IsKnownGenre(string? genre)
+    {
+        return Genres.Contains(genre ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public static string GetCategoryDisplayName(string? category)
+    {
+        return BuildCategories.FirstOrDefault(option => option.Id.Equals(
+                   category,
+                   StringComparison.OrdinalIgnoreCase))?.DisplayName
+            ?? "Релиз";
     }
 }

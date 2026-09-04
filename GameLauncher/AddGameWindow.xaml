@@ -1,0 +1,230 @@
+<Window x:Class="GameLauncher.AddGameWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Добавить игру"
+        Width="760"
+        Height="820"
+        MinWidth="680"
+        MinHeight="700"
+        WindowStartupLocation="CenterOwner"
+        Background="#0D1115"
+        Foreground="White"
+        FontFamily="Segoe UI">
+    <Window.Resources>
+        <Style TargetType="TextBox">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Padding" Value="11,7"/>
+            <Setter Property="Background" Value="#171E24"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="CaretBrush" Value="#C4F000"/>
+            <Setter Property="BorderBrush" Value="#34414A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,14,0,6"/>
+            <Setter Property="Foreground" Value="#B7C0C6"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style x:Key="BrowseButton" TargetType="Button">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="Margin" Value="10,0,0,0"/>
+            <Setter Property="Background" Value="#263139"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#44525C"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Padding="28,22"
+                Background="#12181D"
+                BorderBrush="#263039"
+                BorderThickness="0,0,0,1">
+            <StackPanel>
+                <TextBlock x:Name="HeaderTitleText"
+                           Text="Добавить игру"
+                           FontSize="27"
+                           FontWeight="Bold"/>
+                <TextBlock x:Name="HeaderDescriptionText"
+                           Text="Заполните данные — папка и настройки создадутся автоматически."
+                           Margin="0,5,0,0"
+                           Foreground="#8F9CA5"/>
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="1"
+                      Padding="28,8,28,20"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="Название игры *" Style="{StaticResource FieldLabel}"/>
+                <TextBox x:Name="GameNameTextBox"/>
+
+                <TextBlock Text="Описание" Style="{StaticResource FieldLabel}"/>
+                <TextBox x:Name="DescriptionTextBox"
+                         Height="68"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"/>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Margin="0,0,8,0">
+                        <TextBlock Text="Папка игры *" Style="{StaticResource FieldLabel}"/>
+                        <TextBox x:Name="GameDirectoryTextBox"
+                                 ToolTip="Например: MotorSport или Games/MotorSport"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                        <TextBlock Text="Исполняемый файл *" Style="{StaticResource FieldLabel}"/>
+                        <TextBox x:Name="GameExecutableTextBox"
+                                 ToolTip="Например: My Game.exe"/>
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Text="Ссылка на Version.txt *" Style="{StaticResource FieldLabel}"/>
+                <TextBox x:Name="VersionUrlTextBox"/>
+
+                <TextBlock Text="Ссылка на ZIP-архив игры *" Style="{StaticResource FieldLabel}"/>
+                <TextBox x:Name="PackageUrlTextBox"/>
+
+                <TextBlock Text="Ссылка на YouTube-видео (необязательно)"
+                           Style="{StaticResource FieldLabel}"/>
+                <TextBox x:Name="YoutubeUrlTextBox"
+                         ToolTip="Поддерживаются youtube.com, youtu.be и YouTube Shorts"/>
+
+                <TextBlock Text="Логотип игры *" Style="{StaticResource FieldLabel}"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="72"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="64"
+                            Height="64"
+                            Background="#171E24"
+                            BorderBrush="#34414A"
+                            BorderThickness="1">
+                        <Image x:Name="LogoPreviewImage" Stretch="Uniform"/>
+                    </Border>
+                    <TextBlock x:Name="LogoPathText"
+                               Grid.Column="1"
+                               Margin="10,0"
+                               VerticalAlignment="Center"
+                               Text="Файл не выбран"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="#89969F"/>
+                    <Button Grid.Column="2"
+                            Content="Выбрать…"
+                            Click="BrowseLogo_Click"
+                            Style="{StaticResource BrowseButton}"/>
+                </Grid>
+
+                <TextBlock Text="Обложка игры *" Style="{StaticResource FieldLabel}"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="116"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="108"
+                            Height="64"
+                            Background="#171E24"
+                            BorderBrush="#34414A"
+                            BorderThickness="1">
+                        <Image x:Name="CoverPreviewImage" Stretch="UniformToFill"/>
+                    </Border>
+                    <TextBlock x:Name="CoverPathText"
+                               Grid.Column="1"
+                               Margin="10,0"
+                               VerticalAlignment="Center"
+                               Text="Файл не выбран"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="#89969F"/>
+                    <Button Grid.Column="2"
+                            Content="Выбрать…"
+                            Click="BrowseCover_Click"
+                            Style="{StaticResource BrowseButton}"/>
+                </Grid>
+
+                <TextBlock Text="Слайд-шоу (необязательно, любое количество)"
+                           Style="{StaticResource FieldLabel}"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="116"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="108"
+                            Height="64"
+                            Background="#171E24"
+                            BorderBrush="#34414A"
+                            BorderThickness="1">
+                        <Image x:Name="SlideshowPreviewImage" Stretch="UniformToFill"/>
+                    </Border>
+                    <StackPanel Grid.Column="1"
+                                Margin="10,0"
+                                VerticalAlignment="Center">
+                        <TextBlock x:Name="SlideshowCountText"
+                                   Text="Изображения не выбраны"
+                                   Foreground="#B7C0C6"/>
+                        <TextBlock Text="Можно выбрать сразу несколько файлов"
+                                   Margin="0,3,0,0"
+                                   FontSize="11"
+                                   Foreground="#74818A"/>
+                    </StackPanel>
+                    <Button Grid.Column="2"
+                            Content="Добавить фото…"
+                            Click="BrowseSlideshow_Click"
+                            Style="{StaticResource BrowseButton}"/>
+                    <Button Grid.Column="3"
+                            Content="Очистить"
+                            Click="ClearSlideshow_Click"
+                            Style="{StaticResource BrowseButton}"/>
+                </Grid>
+
+                <TextBlock x:Name="ValidationText"
+                           Margin="0,18,0,0"
+                           TextWrapping="Wrap"
+                           Foreground="#FF7B7B"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                Padding="28,18"
+                Background="#12181D"
+                BorderBrush="#263039"
+                BorderThickness="0,1,0,0">
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <Button Content="Отмена"
+                        Width="110"
+                        Height="40"
+                        Margin="0,0,10,0"
+                        Click="CancelButton_Click"
+                        Background="#263139"
+                        Foreground="White"
+                        BorderBrush="#44525C"
+                        Cursor="Hand"/>
+                <Button x:Name="SaveButton"
+                        Content="Добавить"
+                        Width="130"
+                        Height="40"
+                        Click="AddButton_Click"
+                        Background="#C4F000"
+                        Foreground="#111600"
+                        BorderThickness="0"
+                        FontWeight="Bold"
+                        Cursor="Hand"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

@@ -1,17 +1,4 @@
 {
-  "launcherName": "Game Launcher",
-  "games": [
-    {
-      "id": "motorsport-unbounded-demo",
-      "name": "MotorSport Unbounded Demo",
-      "description": "Внутренняя тестовая сборка",
-      "gameDirectory": "Build",
-      "gameExecutable": "MotorSport Unbounded Demo.exe",
-      "versionFile": "Version.txt",
-      "coverImage": "background.png",
-      "backgroundImage": "background.png",
-      "versionUrl": "https://drive.google.com/file/d/12a60daty53sQWRUJOcYbjTZ0YVThXTov/view?usp=sharing",
-      "packageUrl": "https://drive.google.com/file/d/1RywEdOMSj8pk5ioOC1S7-pGdG7D6NapQ/view?usp=drive_link"
-    }
-  ]
+  "launcherName": "Sherdor Games Launcher",
+  "games": []
 }
